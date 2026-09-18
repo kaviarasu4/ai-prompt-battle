@@ -17,13 +17,11 @@ const app = express();
 // MIDDLEWARE
 // ============================================================
 
+// Production-safe CORS
+// Allows Vercel preview deployments and local development.
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://ai-prompt-battle-one.vercel.app",
-      "https://ai-prompt-battle-qapq1l4wa-kavi-b54d.vercel.app",
-    ],
+    origin: true,
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -175,8 +173,7 @@ app.post("/api/event", async (req, res) => {
 
     res.json({
       success: true,
-      message:
-        "Event created and submissions are now open.",
+      message: "Event created and submissions are now open.",
       event: data,
     });
   } catch (error) {
