@@ -19,7 +19,13 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://ai-prompt-battle-one.vercel.app",
+      "https://ai-prompt-battle-qapq1l4wa-kavi-b54d.vercel.app",
+    ],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -40,17 +46,17 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // ============================================================
 
 if (!SUPABASE_URL) {
-  console.error("❌ SUPABASE_URL missing in .env");
+  console.error("❌ SUPABASE_URL missing in environment variables");
   process.exit(1);
 }
 
 if (!SUPABASE_SECRET_KEY) {
-  console.error("❌ SUPABASE_SECRET_KEY missing in .env");
+  console.error("❌ SUPABASE_SECRET_KEY missing in environment variables");
   process.exit(1);
 }
 
 if (!GEMINI_API_KEY) {
-  console.error("❌ GEMINI_API_KEY missing in .env");
+  console.error("❌ GEMINI_API_KEY missing in environment variables");
   process.exit(1);
 }
 
@@ -1055,11 +1061,6 @@ app.delete(
       // ------------------------------------------------------
       // Delete event
       // ------------------------------------------------------
-      //
-      // Database foreign keys use ON DELETE CASCADE,
-      // so participants and submissions belonging to this
-      // event will also be deleted.
-      // ------------------------------------------------------
 
       const {
         error: deleteError,
@@ -1314,6 +1315,7 @@ app.get(
 
 app.listen(
   PORT,
+  "0.0.0.0",
   () => {
     console.log("");
     console.log(
@@ -1328,7 +1330,7 @@ app.listen(
     console.log("");
 
     console.log(
-      `🚀 Server: http://localhost:${PORT}`
+      `🚀 Server running on port ${PORT}`
     );
 
     console.log(
