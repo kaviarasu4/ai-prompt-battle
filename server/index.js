@@ -49,12 +49,16 @@ if (!SUPABASE_URL) {
 }
 
 if (!SUPABASE_SECRET_KEY) {
-  console.error("❌ SUPABASE_SECRET_KEY missing in environment variables");
+  console.error(
+    "❌ SUPABASE_SECRET_KEY missing in environment variables"
+  );
   process.exit(1);
 }
 
 if (!GEMINI_API_KEY) {
-  console.error("❌ GEMINI_API_KEY missing in environment variables");
+  console.error(
+    "❌ GEMINI_API_KEY missing in environment variables"
+  );
   process.exit(1);
 }
 
@@ -95,6 +99,94 @@ function cleanFeedback(value) {
   }
 
   return value.trim().slice(0, 500);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+// ============================================================
+// GEMINI RETRY HELPER
+// ============================================================
+
+async function generateJudgeContent(judgePrompt) {
+  const maxAttempts = 4;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(
+        `   🤖 Gemini attempt ${attempt}/${maxAttempts}`
+      );
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: judgePrompt,
+      });
+
+      console.log(
+        `   ✅ Gemini response received on attempt ${attempt}`
+      );
+
+      return response;
+    } catch (error) {
+      const errorText =
+        error?.message ||
+        JSON.stringify(error);
+
+      const errorStatus =
+        error?.status ||
+        error?.code ||
+        "";
+
+      console.error(
+        `   ⚠️ Gemini attempt ${attempt} failed:`,
+        errorText
+      );
+
+      // Temporary errors that are safe to retry
+      const isTemporaryError =
+        String(errorStatus).includes("503") ||
+        String(errorStatus).includes("429") ||
+        errorText.includes("503") ||
+        errorText.includes("UNAVAILABLE") ||
+        errorText.includes("high demand") ||
+        errorText.includes("overloaded") ||
+        errorText.includes("RESOURCE_EXHAUSTED") ||
+        errorText.includes("rate limit") ||
+        errorText.includes("Too Many Requests");
+
+      // Do not retry permanent errors
+      if (
+        !isTemporaryError ||
+        attempt === maxAttempts
+      ) {
+        throw error;
+      }
+
+      // Exponential backoff:
+      // Attempt 1 -> 2 sec
+      // Attempt 2 -> 4 sec
+      // Attempt 3 -> 8 sec
+      const waitTime =
+        Math.pow(2, attempt) * 1000;
+
+      console.log(
+        `   ⏳ Gemini temporarily unavailable.`
+      );
+
+      console.log(
+        `   🔄 Retrying in ${waitTime / 1000} seconds...`
+      );
+
+      await sleep(waitTime);
+    }
+  }
+
+  throw new Error(
+    "Gemini judging failed after multiple retries."
+  );
 }
 
 // ============================================================
@@ -147,7 +239,10 @@ app.post("/api/event", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("events")
       .insert({
         event_name: eventName.trim(),
@@ -159,7 +254,10 @@ app.post("/api/event", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("CREATE EVENT ERROR:", error);
+      console.error(
+        "CREATE EVENT ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
@@ -173,16 +271,21 @@ app.post("/api/event", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Event created and submissions are now open.",
+      message:
+        "Event created and submissions are now open.",
       event: data,
     });
   } catch (error) {
-    console.error("CREATE EVENT ERROR:", error);
+    console.error(
+      "CREATE EVENT ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
       message:
-        error.message || "Failed to create event.",
+        error.message ||
+        "Failed to create event.",
     });
   }
 });
@@ -202,7 +305,10 @@ app.post("/api/open-event", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("events")
       .update({
         status: "open",
@@ -212,7 +318,10 @@ app.post("/api/open-event", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("OPEN EVENT ERROR:", error);
+      console.error(
+        "OPEN EVENT ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
@@ -226,12 +335,16 @@ app.post("/api/open-event", async (req, res) => {
       event: data,
     });
   } catch (error) {
-    console.error("OPEN EVENT ERROR:", error);
+    console.error(
+      "OPEN EVENT ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
       message:
-        error.message || "Failed to open event.",
+        error.message ||
+        "Failed to open event.",
     });
   }
 });
@@ -260,7 +373,10 @@ app.post("/api/close-event", async (req, res) => {
       .eq("id", eventId)
       .single();
 
-    if (eventError || !existingEvent) {
+    if (
+      eventError ||
+      !existingEvent
+    ) {
       return res.status(404).json({
         success: false,
         message: "Event not found.",
@@ -275,7 +391,10 @@ app.post("/api/close-event", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("events")
       .update({
         status: "closed",
@@ -285,7 +404,10 @@ app.post("/api/close-event", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("CLOSE EVENT ERROR:", error);
+      console.error(
+        "CLOSE EVENT ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
@@ -303,12 +425,16 @@ app.post("/api/close-event", async (req, res) => {
       event: data,
     });
   } catch (error) {
-    console.error("CLOSE EVENT ERROR:", error);
+    console.error(
+      "CLOSE EVENT ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
       message:
-        error.message || "Failed to close event.",
+        error.message ||
+        "Failed to close event.",
     });
   }
 });
@@ -346,7 +472,10 @@ app.post("/api/judge", async (req, res) => {
       .eq("id", eventId)
       .single();
 
-    if (eventError || !event) {
+    if (
+      eventError ||
+      !event
+    ) {
       return res.status(404).json({
         success: false,
         message: "Event not found.",
@@ -425,7 +554,8 @@ app.post("/api/judge", async (req, res) => {
       i < submissions.length;
       i++
     ) {
-      const submission = submissions[i];
+      const submission =
+        submissions[i];
 
       const participantName =
         submission.participants?.name ||
@@ -439,15 +569,18 @@ app.post("/api/judge", async (req, res) => {
         `🧠 Judging ${i + 1}/${submissions.length}: ${participantName}`
       );
 
-      const promptText = String(
-        submission.prompt || ""
-      ).trim();
+      const promptText =
+        String(
+          submission.prompt || ""
+        ).trim();
 
       if (!promptText) {
         failedSubmissions.push({
-          submissionId: submission.id,
+          submissionId:
+            submission.id,
           participantName,
-          reason: "Empty prompt.",
+          reason:
+            "Empty prompt.",
         });
 
         continue;
@@ -639,22 +772,35 @@ All values must be numeric.
 Feedback must be concise and professional.
 `;
 
+      // ======================================================
+      // GEMINI REQUEST WITH AUTOMATIC RETRY
+      // ======================================================
+
       try {
         const response =
-          await ai.models.generateContent({
-            model: "gemini-3.6-flash",
-            contents: judgePrompt,
-          });
+          await generateJudgeContent(
+            judgePrompt
+          );
 
-        let text = response.text || "";
+        let text =
+          response.text || "";
 
         text = text
-          .replace(/```json/gi, "")
-          .replace(/```/g, "")
+          .replace(
+            /```json/gi,
+            ""
+          )
+          .replace(
+            /```/g,
+            ""
+          )
           .trim();
 
-        const start = text.indexOf("{");
-        const end = text.lastIndexOf("}");
+        const start =
+          text.indexOf("{");
+
+        const end =
+          text.lastIndexOf("}");
 
         if (
           start === -1 ||
@@ -722,8 +868,11 @@ Feedback must be concise and professional.
         } = await supabase
           .from("submissions")
           .update({
-            ai_score: totalScore,
-            ai_feedback: feedback,
+            ai_score:
+              totalScore,
+
+            ai_feedback:
+              feedback,
 
             ingredient_integration_score:
               ingredientScore,
@@ -739,7 +888,10 @@ Feedback must be concise and professional.
 
             judged: true,
           })
-          .eq("id", submission.id);
+          .eq(
+            "id",
+            submission.id
+          );
 
         if (updateError) {
           throw updateError;
@@ -757,7 +909,8 @@ Feedback must be concise and professional.
           collegeName:
             participantCollege,
 
-          score: totalScore,
+          score:
+            totalScore,
 
           ingredientIntegrationScore:
             ingredientScore,
@@ -903,7 +1056,8 @@ Feedback must be concise and professional.
         });
       }
 
-      result.rank = i + 1;
+      result.rank =
+        i + 1;
 
       delete result.originalSubmissionId;
     }
@@ -933,7 +1087,10 @@ Feedback must be concise and professional.
       .update({
         status: "results",
       })
-      .eq("id", eventId);
+      .eq(
+        "id",
+        eventId
+      );
 
     if (statusError) {
       console.error(
@@ -954,9 +1111,15 @@ Feedback must be concise and professional.
     // ========================================================
 
     console.log("");
-    console.log("================================");
-    console.log("       🏆 JUDGING COMPLETE");
-    console.log("================================");
+    console.log(
+      "================================"
+    );
+    console.log(
+      "       🏆 JUDGING COMPLETE"
+    );
+    console.log(
+      "================================"
+    );
 
     console.log(
       `Participants: ${judgedResults.length}`
